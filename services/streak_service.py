@@ -55,7 +55,8 @@ def update_listening_streak(user: User, now: datetime) -> None:
     """
     today = now.date()
 
-    if user.last_listened_at is None:
+    if user.last_listened_at is None: 
+        #last_listeed_At set correctly? - probably not - should be set when they listen
         user.listening_streak = 1
         user.last_listened_at = now
         return
@@ -70,7 +71,7 @@ def update_listening_streak(user: User, now: datetime) -> None:
     if days_since_last == 0:
         # Already updated today — no change needed
         return
-    elif days_since_last == 1 and today.weekday() != 6:
+    elif days_since_last == 1: #also,  today.weekday() != 6: is weird - streak resets on Sunday
         user.listening_streak += 1
     else:
         user.listening_streak = 1
@@ -78,7 +79,7 @@ def update_listening_streak(user: User, now: datetime) -> None:
     user.last_listened_at = now
 
 
-def get_streak(user_id: str) -> int:
+def get_streak(user_id: str) -> int: #simple - no errors
     """
     Get the current listening streak for a user.
 

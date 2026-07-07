@@ -85,11 +85,11 @@ pytest tests/
 
 | # | Title | Affected service |
 |---|-------|-----------------|
-| 1 | My listening streak keeps resetting | `streak_service.py` |
-| 2 | Friends Listening Now shows people from yesterday | `feed_service.py` |
-| 3 | The same song keeps showing up twice in search | `search_service.py` |
-| 4 | I got notified when a friend added my song to a playlist but not when they rated it | `notification_service.py` |
-| 5 | The last song in a playlist never shows up | `playlist_service.py` |
+| 1 | My listening streak keeps resetting | `streak_service.py` ??today.weekday() != 6: is weird - streak resets on Sunday - test and confirm this is the case then fix it?? |
+| 2 | Friends Listening Now shows people from yesterday | `feed_service.py` ??a time thing - not today - we see past 24 hours - timedelta?? |
+| 3 | The same song keeps showing up twice in search | `search_service.py` ??likely how we're adding to alist?? |
+| 4 | I got notified when a friend added my song to a playlist but not when they rated it | `notification_service.py` ??rating loging should have an issue - compare to adding?? |
+| 5 | The last song in a playlist never shows up | `playlist_service.py` ??list being read?? |
 
 Full issue descriptions are in the **Project 5 brief**. Read them carefully before opening any service file.
 
