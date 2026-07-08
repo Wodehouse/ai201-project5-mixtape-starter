@@ -4,7 +4,7 @@ services/feed_service.py — Mixtape
 Handles the "Friends Listening Now" feed and activity feed logic.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
 from sqlalchemy import desc
 from app import db
 from models import User, Song, ListeningEvent
@@ -13,7 +13,7 @@ from models import User, Song, ListeningEvent
 RECENT_THRESHOLD = timedelta(hours=24)
 
 
-def get_friends_listening_now(user_id: str) -> list[dict]:
+def get_friends_listening_now(user_id: str) -> list[dict]: #returns people from yesterday
     """
     Return a list of friends who have listened to something recently,
     along with the song they were listening to.
@@ -29,7 +29,10 @@ def get_friends_listening_now(user_id: str) -> list[dict]:
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    cutoff = datetime.now(timezone.utc) - RECENT_THRESHOLD
+    # cutoff = datetime.now(timezone.utc) - RECENT_THRESHOLD #maybe the threshold? - what does 'recently' mean?
+    # issue likely here
+    # this is returning everything in the last 24 hours (RECENT_THRESHOLD) instea of what we're listening to now
+    cutoff = datetime.combine(datetime.now(timezone.utc), time.min)
     friend_ids = [f.id for f in user.friends]
 
     if not friend_ids:
@@ -41,12 +44,12 @@ def get_friends_listening_now(user_id: str) -> list[dict]:
             ListeningEvent.user_id.in_(friend_ids),
             ListeningEvent.listened_at >= cutoff,
         )
-        .order_by(desc(ListeningEvent.listened_at))
+        .order_by(desc(ListeningEvent.listened_at)) #Correct
         .all()
     )
 
     # Deduplicate: only show the most recent song per friend
-    seen_friends = set()
+    seen_friends = set() #what is seen_friends?
     result = []
     for event in recent_events:
         if event.user_id not in seen_friends:

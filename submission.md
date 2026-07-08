@@ -14,12 +14,46 @@ For Bug #5: Identified the root cause myself by reading `get_playlist_songs()`
 in the playlist service. Used AI to help draft the RCA entry after confirming
 the fix.
 
+For Bug #2: Identified the root cause myself by reading `get_friends_listening_now()`
+in the feed service. The bug was hard to reproduce via API calls alone since
+the seed data events all fell within today's window regardless of the cutoff
+logic — so I wrote a dedicated unit test that places a listen event one second
+before midnight to distinguish the rolling 24h window from the intended
+"since midnight" behaviour. Used AI to help draft the RCA entry after the fix
+was confirmed by the test suite.
+
 ---
 
 ## Codebase Map
 
-<!-- Write this before starting any bug work — Milestone 1 -->
-<!-- Cover: main files and their roles, data flow for at least one feature -->
+`app.py` is the Flask application factory. It initialises the database,
+registers the four blueprints (songs, playlists, users, feed), and exposes
+`create_app()` for both the server and the test suite.
+
+`models.py` defines the five SQLAlchemy models — `User`, `Song`, `Playlist`,
+`ListeningEvent`, and `Notification` — plus three association tables:
+`song_tags`, `playlist_entries` (which stores an explicit `position` column
+for ordered songs), and `friendships` (a bidirectional self-referential
+many-to-many on `User`).
+
+`routes/` contains four blueprint files — `songs.py`, `playlists.py`,
+`users.py`, and `feed.py`. Each route does input parsing and response
+formatting only; all business logic is immediately delegated to a
+corresponding service function.
+
+`services/` is where all the logic lives. Each service file maps to a
+feature domain: `feed_service.py` handles the listening-now feed,
+`streak_service.py` handles listening streaks, `playlist_service.py`
+handles playlist queries, `song_service.py` handles search, and
+`notification_service.py` handles notification creation.
+
+Data flow — user listens to a song:
+A `POST /songs/<id>/listen` request hits `routes/songs.py`, which calls
+`song_service.record_listen()`. That function creates a `ListeningEvent`
+row, then calls `streak_service.update_listening_streak()` to update the
+user's streak, and `notification_service.notify_*` functions to fan out
+any relevant notifications. All database writes happen inside the service
+layer; the route only formats and returns the JSON response.
 
 ---
 
@@ -100,59 +134,53 @@ return [song.to_dict() for song in songs]
 The query ordering and all other logic is untouched. Ran
 `pytest tests/test_playlists.py` and both previously failing tests now
 pass. Verified that an empty playlist still returns an empty list
-(no index error on an empty `songs`).
+with no index error.
 
 ---
 
 ### Bug #2 — Friends Listening Now shows people from yesterday
 
 **How I reproduced it:**
-<!-- Fill in after Milestone 2 -->
+The bug was difficult to reproduce via API calls alone because the seed
+data events all fall within today's window regardless of which cutoff
+logic is used. Instead I wrote a unit test in `tests/test_feed.py` that
+places a friend's listen event one second before midnight
+(`start_of_today - timedelta(seconds=1)`). This timestamp sits inside
+the old rolling 24-hour window but before today's midnight boundary —
+the exact condition that exposes the difference between the buggy and
+fixed behaviour. The test `test_excludes_events_from_yesterday` failed
+before the fix and passed after.
 
 **How I found the root cause:**
-<!-- Fill in after investigation -->
+Read `get_friends_listening_now()` in `services/feed_service.py`. The
+cutoff was computed as:
+```python
+cutoff = datetime.now(timezone.utc) - RECENT_THRESHOLD
+```
+where `RECENT_THRESHOLD = timedelta(hours=24)`. This creates a rolling
+24-hour window rather than a same-calendar-day window, which is what the
+feature description requires.
 
 **Root cause:**
-<!-- Fill in -->
+`RECENT_THRESHOLD` was set to `timedelta(hours=24)`, making the cutoff
+a point 24 hours in the past rather than the start of the current
+calendar day. A friend who listened at 11pm last night would still
+appear at 9am the next morning because 10 hours is within the 24-hour
+window — but they are clearly not listening "now" or even "today".
 
 **Fix and side-effect check:**
-<!-- Fill in -->
-
----
-
-### Bug #3 — The same song keeps showing up twice in search
-
-**How I reproduced it:**
-<!-- Fill in after Milestone 2 -->
-
-**How I found the root cause:**
-<!-- Fill in after investigation -->
-
-**Root cause:**
-<!-- Fill in -->
-
-**Fix and side-effect check:**
-<!-- Fill in -->
-
----
-
-### Bug #4 — No notification when a song is rated
-
-**How I reproduced it:**
-<!-- Fill in after Milestone 2 -->
-
-**How I found the root cause:**
-<!-- Fill in after investigation -->
-
-**Root cause:**
-<!-- Fill in -->
-
-**Fix and side-effect check:**
-<!-- Fill in -->
+Replaced the rolling threshold cutoff with a midnight-of-today cutoff:
+```python
+cutoff = datetime.combine(datetime.now(timezone.utc), time.min)
+```
+This anchors the window to the start of the current UTC day rather than
+a rolling 24-hour period. The deduplication logic (`seen_friends` set)
+and ordering (`desc(listened_at)`) are untouched. All five tests in
+`tests/test_feed.py` pass after the fix, including the regression test
+that specifically targets the yesterday-boundary case.
 
 ---
 
 ## Git Log Screenshot
 
 <!-- Paste screenshot of `git log --oneline` on bugfix/mixtape branch -->
-<!-- Should show one commit per bug fix with fix: prefix -->
