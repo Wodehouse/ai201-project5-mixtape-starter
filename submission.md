@@ -44,15 +44,14 @@ corresponding service function.
 `services/` is where all the logic lives. Each service file maps to a
 feature domain: `feed_service.py` handles the listening-now feed,
 `streak_service.py` handles listening streaks, `playlist_service.py`
-handles playlist queries, `song_service.py` handles search, and
+handles playlist queries, `search_service.py` handles song search, and
 `notification_service.py` handles notification creation.
 
 Data flow — user listens to a song:
 A `POST /songs/<id>/listen` request hits `routes/songs.py`, which calls
-`song_service.record_listen()`. That function creates a `ListeningEvent`
-row, then calls `streak_service.update_listening_streak()` to update the
-user's streak, and `notification_service.notify_*` functions to fan out
-any relevant notifications. All database writes happen inside the service
+`streak_service.record_listening_event()`. That function creates a
+`ListeningEvent` row, then calls `streak_service.update_listening_streak()`
+to update the user's streak. All database writes happen inside the service
 layer; the route only formats and returns the JSON response.
 
 ---
