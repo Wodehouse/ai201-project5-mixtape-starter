@@ -50,7 +50,7 @@ def get_playlist_songs(playlist_id: str) -> list[dict]:
     Note:
         This function returns all songs in the playlist.
     """
-    playlist = db.session.get(Playlist, playlist_id)
+    playlist = db.session.get(Playlist, playlist_id) #maybe this might have issue?
     if not playlist:
         raise ValueError(f"Playlist {playlist_id} not found")
 
@@ -63,7 +63,7 @@ def get_playlist_songs(playlist_id: str) -> list[dict]:
         .all()
     )
 
-    return [song.to_dict() for song in songs[:-1]]
+    return [song.to_dict() for song in songs] #returns minus the last element
 
 
 def get_playlist(playlist_id: str) -> dict:

@@ -10,7 +10,9 @@ I provided the code and my diagnosis; the AI helped structure and articulate
 the written response. All code reading, tracing, and the fix itself were done
 independently.
 
-<!-- Add entries for subsequent bugs here as you fix them -->
+For Bug #5: Identified the root cause myself by reading `get_playlist_songs()`
+in the playlist service. Used AI to help draft the RCA entry after confirming
+the fix.
 
 ---
 
@@ -28,10 +30,11 @@ independently.
 ### Bug #1 — My listening streak keeps resetting
 
 **How I reproduced it:**
-Listened on a Saturday, then listened again on Sunday. Called
-`GET /users/<id>/streak` and saw the streak show 1 instead of
-incrementing from the previous day's count. Confirmed the Sunday
-streak test was previously failing and passed after the fix.
+Ran the existing test suite before touching any code. The Sunday streak
+test was already failing — it set up a Saturday listen followed by a
+Sunday listen and asserted the streak incremented, but got a reset to 1
+instead. The failing test confirmed the reported behavior without needing
+to trigger it manually via the API.
 
 **How I found the root cause:**
 Started from `app.py` to understand the app entry point, then navigated
@@ -61,6 +64,43 @@ consecutive-day listen — the weekday guard was both unnecessary and
 wrong. The `days_since_last == 0` (already listened today) and `else`
 (missed a day) branches are untouched and unaffected. Ran tests and
 confirmed the previously failing Sunday streak test now passes.
+
+---
+
+### Bug #5 — The last song in a playlist never shows up
+
+**How I reproduced it:**
+Ran `pytest tests/test_playlists.py` before touching any code. Two tests
+failed: `test_playlist_returns_all_songs` (asserted 5 songs, got 4) and
+`test_playlist_returns_songs_in_order` (list stopped at Track 4, missing
+Track 5). No manual API calls were needed — the failing tests confirmed
+the reported behavior directly.
+
+**How I found the root cause:**
+Navigated to the playlist service and read `get_playlist_songs()`. The
+query itself is correct — it fetches all songs ordered by position. The
+bug was on the return line at the bottom of the function.
+
+**Root cause:**
+The return statement used a Python slice that strips the last element:
+```python
+return [song.to_dict() for song in songs[:-1]]
+```
+`songs[:-1]` returns every element except the last one. Since songs are
+ordered by position (ascending), the last element is always the most
+recently added song — exactly matching the reported behavior where the
+newest song is always the missing one, and adding another song "frees"
+the previous last song while hiding the new one.
+
+**Fix and side-effect check:**
+Removed the `[:-1]` slice:
+```python
+return [song.to_dict() for song in songs]
+```
+The query ordering and all other logic is untouched. Ran
+`pytest tests/test_playlists.py` and both previously failing tests now
+pass. Verified that an empty playlist still returns an empty list
+(no index error on an empty `songs`).
 
 ---
 
@@ -97,22 +137,6 @@ confirmed the previously failing Sunday streak test now passes.
 ---
 
 ### Bug #4 — No notification when a song is rated
-
-**How I reproduced it:**
-<!-- Fill in after Milestone 2 -->
-
-**How I found the root cause:**
-<!-- Fill in after investigation -->
-
-**Root cause:**
-<!-- Fill in -->
-
-**Fix and side-effect check:**
-<!-- Fill in -->
-
----
-
-### Bug #5 — Last song in a playlist never shows up
 
 **How I reproduced it:**
 <!-- Fill in after Milestone 2 -->
